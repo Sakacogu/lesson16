@@ -1,98 +1,109 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
+import { useEffect, useState } from 'react';
 
-interface Expense {
-  name: string;
-  cost: number;
-}
+type CatImage = { url: string; id: string };
 
-export default function Home() {
-  const [name, setName] = useState("");
-  const [cost, setCost] = useState("");
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+export default function HomePage() {
+  const [images, setImages] = useState<CatImage[] | null>(null);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [overlays, setOverlays] = useState<Record<string, { text: string; loading: boolean }>>({});
 
-  const addExpense = () => {
-    if (!name || !cost) return;
+  async function fetchImages() {
+    setLoadingImages(true);
+    setImages(null);
+    try {
+      const res = await fetch('https://api.thecatapi.com/v1/images/search?limit=9');
+      const data = (await res.json()) as CatImage[];
+      setImages(data.slice(0, 9));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingImages(false);
+    }
+  }
 
-    setExpenses([...expenses, { name, cost: parseFloat(cost) }]);
-    setName("");
-    setCost("");
-  };
+  async function handleClick(id: string) {
+    setOverlays(prev => ({ ...prev, [id]: { text: 'Loading...', loading: true } }));
+    try {
+      const res  = await fetch('https://catfact.ninja/fact');
+      const json = (await res.json()) as { fact: string };
+      setOverlays(prev => ({ ...prev, [id]: { text: json.fact, loading: false } }));
+    } catch {
+      setOverlays(prev => ({ ...prev, [id]: { text: 'Error loading fact.', loading: false } }));
+    }
+  }
 
-  const deleteExpense = (index: number) => {
-    const updated = [...expenses];
-    updated.splice(index, 1);
-    setExpenses(updated);
-  };
-
-  const total = expenses.reduce((sum, e) => sum + e.cost, 0);
+  useEffect(() => {
+    fetchImages();
+  }, []);
 
   return (
-    <div className="flex items-start h-screen pl-28 pt-26 text-white bg-zinc-900 text-2xl">
-      <div className="w-1/3 max-w-sm">
-        <h1 className="text-6xl text-teal-400 mb-4">Add Expense</h1>
+    <main
+      className="
+        min-h-screen
+        bg-[radial-gradient(ellipse_at_center,_#fafaff,_#cbb8ff)]
+        pt-35
+        pb-10
+        px-4
+      "
+    >
+      <h1 className="text-5xl font-extrabold text-center text-gray-700 pb-22">
+        Cats Cats Cats!
+      </h1>
 
-        <label className="block mb-2">
-          Name
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-2 mt-1 text-black bg-amber-50"
-          />
-        </label>
-
-        <label className="block mb-4">
-          Cost
-          <input
-            type="number"
-            value={cost}
-            onChange={(e) => setCost(e.target.value)}
-            className="w-full p-2 mt-1 text-black bg-amber-50"
-          />
-        </label>
-
-        <button
-          onClick={addExpense}
-          className="bg-white text-black px-4 py-2 rounded text-4xl"
-        >
-          Add
-        </button>
-
-        <h2 className="text-5xl text-teal-400 mt-8 mb-2">Stats</h2>
-        <p>Sum: {total}</p>
-        <p>Count: {expenses.length}</p>
+      <div
+        id="gallery"
+        className="
+          grid grid-cols-3 gap-6 justify-center
+          max-w-xl mx-auto 
+        "
+      >
+        {loadingImages && (
+          <div className="col-span-3 text-center text-lg text-gray-500">Loading...</div>
+        )}
+        {!loadingImages &&
+          images?.map(img => (
+            <div
+              key={img.id}
+              className="relative w-40 h-40 rounded-xl overflow-hidden shadow-lg cursor-pointer"
+              onClick={() => handleClick(img.id)}
+            >
+              <img src={img.url} alt="Cute cat" className="w-full h-full object-cover" />
+              {overlays[img.id] && (
+                <div
+                  className="
+                    absolute inset-0
+                    bg-black/60
+                    p-2
+                    overflow-y-auto
+                    text-white text-sm
+                    whitespace-pre-wrap break-words
+                  "
+                >
+                  {overlays[img.id].text}
+                </div>
+              )}
+            </div>
+          ))}
       </div>
 
-      <div className="w-2/3 space-y-4 flex flex-col md:pl-30 lg:pl-50 2xl:pl-100 pr-10">
-        {expenses.map((exp, index) => (
-          <div
-          key={index}
-          className="expense-item relative border-2 border-teal-400 rounded p-4 bg-zinc-800 w-full"
-        >        
-            <p>
-              <strong>Name:</strong> {exp.name}
-            </p>
-            <p>
-              <strong>Cost:</strong> {exp.cost}
-            </p>
-            <span
-              className="absolute top-4 right-4 text-red-500 cursor-pointer"
-              onClick={(event) => {
-                const expenseElement = (event.target as Element).closest('.expense-item');
-                if (expenseElement) {
-                  expenseElement.classList.add('fadeout');
-                  setTimeout(() => {
-                    deleteExpense(index);
-                  }, 300);
-                }
-              }} >
-              ❌
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
+      <button
+        onClick={fetchImages}
+        className="
+          block mt-12
+          mx-auto
+          px-6 py-3
+          bg-purple-600 hover:bg-purple-700
+          text-white font-semibold
+          rounded-lg
+          shadow-md
+          transition
+          duration-200
+        "
+      >
+        Fetch New Cats
+      </button>
+    </main>
   );
 }
